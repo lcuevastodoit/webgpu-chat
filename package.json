@@ -8,11 +8,17 @@
     "download": "node download-model.js",
     "dev": "node server.js"
   },
-  "keywords": ["gemma", "webgpu", "llm", "local"],
+  "keywords": [
+    "gemma",
+    "webgpu",
+    "llm",
+    "local"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "ejs": "^6.0.1",
     "express": "^5.2.1"
   }
 }

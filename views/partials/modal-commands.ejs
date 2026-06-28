@@ -1,0 +1,35 @@
+<div class="modal-overlay" id="commands-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-title">New Command</h3>
+      <button class="modal-close" id="modal-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="command-form">
+        <div class="form-group">
+          <label>Command Name *</label>
+          <input type="text" id="cmd-name" placeholder="code" maxlength="20">
+          <small>Use /name to invoke. Letters, numbers, hyphens only.</small>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <input type="text" id="cmd-desc" placeholder="What does this do?" maxlength="50">
+        </div>
+        <div class="form-group">
+          <label>System Prompt *</label>
+          <textarea id="cmd-prompt" rows="4" placeholder="You are an expert..."></textarea>
+          <small>This prompt will be sent as the system instruction.</small>
+        </div>
+        <div class="form-group">
+          <label>Icon (Emoji)</label>
+          <input type="text" id="cmd-icon" placeholder="💻" maxlength="2">
+        </div>
+      </div>
+      <div class="saved-commands-list hidden" id="saved-commands-list"></div>
+    </div>
+    <div class="modal-footer" id="modal-footer">
+      <button class="btn btn-secondary" id="btn-manage">Manage</button>
+      <button class="btn btn-primary" id="btn-save">Save Command</button>
+    </div>
+  </div>
+</div>

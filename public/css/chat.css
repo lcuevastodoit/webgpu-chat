@@ -1,0 +1,342 @@
+/* Chat Container */
+.chat-container {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 160px;
+}
+
+/* Messages */
+.message {
+  padding: 24px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.message-content {
+  max-width: 48rem;
+  margin: 0 auto;
+  display: flex;
+  gap: 16px;
+}
+
+.message.user .message-content {
+  justify-content: flex-end;
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.avatar.user {
+  background: #3b3b3b;
+  color: #fff;
+  order: 2;
+}
+
+.avatar.assistant {
+  background: var(--accent);
+  color: #0d0d0d;
+}
+
+.message-body {
+  flex: 1;
+  line-height: 1.6;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.message.user .message-body {
+  text-align: right;
+}
+
+/* Markdown Styles */
+.message-body h1, .message-body h2, .message-body h3 {
+  margin: 16px 0 12px;
+  font-weight: 600;
+}
+
+.message-body h1 { font-size: 1.5rem; }
+.message-body h2 { font-size: 1.25rem; }
+.message-body h3 { font-size: 1.1rem; }
+
+.message-body p { margin: 8px 0; }
+.message-body ul, .message-body ol {
+  margin: 8px 0 8px 20px;
+}
+.message-body li { margin: 4px 0; }
+
+.message-body code {
+  background: var(--code-bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', Monaco, monospace;
+  font-size: 13px;
+}
+
+.message-body pre {
+  background: var(--code-bg);
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  position: relative;
+}
+
+.message-body pre code {
+  background: none;
+  padding: 0;
+}
+
+.message-body blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  margin: 12px 0;
+  color: var(--text-secondary);
+}
+
+.message-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+
+.message-body th, .message-body td {
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.message-body th {
+  background: var(--bg-secondary);
+}
+
+/* Message Actions */
+.message-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.message:hover .message-actions {
+  opacity: 1;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px 8px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  background: rgba(255,255,255,0.05);
+  color: var(--text-primary);
+}
+
+.action-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Input Area */
+.input-container {
+  position: fixed;
+  bottom: 0;
+  left: 260px;
+  right: 0;
+  background: linear-gradient(to top, var(--bg-primary) 0%, var(--bg-primary) 85%, transparent 100%);
+  padding: 24px 16px 32px;
+}
+
+.input-wrapper {
+  max-width: 48rem;
+  margin: 0 auto;
+  position: relative;
+}
+
+.input-box {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 56px 14px 16px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.input-box:focus-within {
+  border-color: rgba(100, 255, 160, 0.3);
+}
+
+textarea {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  min-height: 24px;
+  max-height: 200px;
+  font-family: inherit;
+}
+
+textarea::placeholder {
+  color: var(--text-secondary);
+}
+
+textarea:disabled {
+  opacity: 0.5;
+}
+
+.send-btn {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--accent);
+  border: none;
+  color: #0d0d0d;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.send-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.input-footer {
+  text-align: center;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Typing Indicator */
+.typing-indicator {
+  display: flex;
+  gap: 4px;
+  padding: 12px 0;
+  justify-content: center;
+}
+
+.typing-indicator span {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: typing 1.4s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* Commands Button */
+.commands-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-right: 8px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.commands-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.commands-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Command Badge */
+.command-badge {
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--accent);
+  z-index: 10;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.command-badge:hover {
+  background: rgba(100, 255, 160, 0.1);
+  box-shadow: 0 0 0 2px rgba(100, 255, 160, 0.2);
+}
+
+.command-badge .remove-cmd {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0 4px;
+  line-height: 1;
+  border-radius: 3px;
+  transition: all 0.2s;
+}
+
+.command-badge .remove-cmd:hover {
+  background: rgba(255, 122, 107, 0.2);
+  color: var(--error);
+}
+
+.command-badge.hidden {
+  display: none !important;
+}
