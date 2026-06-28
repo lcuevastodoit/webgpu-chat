@@ -267,9 +267,13 @@ export class ChatManager {
 
   regenerateMessage(btn) {
     const messageDiv = btn.closest('.message');
-    const msgIndex = Array.from(messageDiv.parentElement.children).indexOf(messageDiv);
+    // Use the messageId stored in dataset instead of DOM index
+    const msgId = messageDiv.dataset.messageId;
+    if (msgId === undefined) return;
 
-    // Only allow regenerating assistant messages that have a user message before them
+    const msgIndex = parseInt(msgId, 10);
+
+    // Only allow regenerating assistant messages
     const message = this.messages[msgIndex];
     if (!message || message.role !== 'assistant') return;
 
@@ -496,20 +500,120 @@ export class ChatManager {
     const { history } = this.elements;
     if (!history) return;
 
-    history.innerHTML = this.chats.map(chat => `
-      <div class="chat-item ${chat.id === this.currentChatId ? 'active' : ''}" data-id="${chat.id}">
+    // Sort chats: pinned first, then by date (newest first)
+    const sortedChats = [...this.chats].sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return b.created - a.created;
+    });
+
+    history.innerHTML = sortedChats.map(chat => `
+      <div class="chat-item ${chat.id === this.currentChatId ? 'active' : ''} ${chat.pinned ? 'pinned' : ''}" data-id="${chat.id}">
+        <div class="chat-item-content" onclick="window.chatManager.loadChat('${chat.id}')" title="${escapeHtml(chat.title || 'New chat')}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          ${chat.pinned ? '<svg class="pin-icon" viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z"/></svg> ' : ''}
+          <span class="chat-title">${escapeHtml(chat.title || 'New chat')}</span>
+        </div>
+        <div class="chat-actions">
+          <button class="action-btn pin-btn ${chat.pinned ? 'active' : ''}" onclick="window.chatManager.togglePin(event, '${chat.id}')" title="${chat.pinned ? 'Unpin chat' : 'Pin chat'}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+            </svg>
+          </button>
+          <button class="action-btn rename-btn" onclick="window.chatManager.startRename(event, '${chat.id}')" title="Rename chat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
+          <button class="action-btn delete-btn" onclick="window.chatManager.deleteChat(event, '${chat.id}')" title="Delete chat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  togglePin(event, chatId) {
+    event.stopPropagation();
+    const chat = this.chats.find(c => c.id === chatId);
+    if (!chat) return;
+
+    chat.pinned = !chat.pinned;
+    saveChats(this.chats);
+    this.renderHistory();
+  }
+
+  deleteChat(event, chatId) {
+    event.stopPropagation();
+
+    if (!confirm('Delete this conversation?')) return;
+
+    this.chats = this.chats.filter(c => c.id !== chatId);
+    saveChats(this.chats);
+
+    if (this.currentChatId === chatId) {
+      this.currentChatId = null;
+      this.messages = [];
+      if (this.elements.container) {
+        this.elements.container.innerHTML = '';
+      }
+      if (this.elements.emptyState) {
+        this.elements.emptyState.style.display = 'flex';
+      }
+      if (this.elements.inputContainer) {
+        this.elements.inputContainer.style.display = 'none';
+      }
+      this.clearTokenCounter();
+    }
+
+    this.renderHistory();
+  }
+
+  renderHistory() {
+    const { history } = this.elements;
+    if (!history) return;
+
+    // Sort chats: pinned first, then by date (newest first)
+    const sortedChats = [...this.chats].sort((a, b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return b.created - a.created;
+    });
+
+    history.innerHTML = sortedChats.map(chat => `
+      <div class="chat-item ${chat.id === this.currentChatId ? 'active' : ''} ${chat.pinned ? 'pinned' : ''}" data-id="${chat.id}">
         <div class="chat-item-content" onclick="window.chatManager.loadChat('${chat.id}')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
           </svg>
+          ${chat.pinned ? '<svg class="pin-icon" viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z"/></svg> ' : ''}
           <span class="chat-title">${escapeHtml(chat.title || 'New chat')}</span>
         </div>
-        <button class="rename-btn" onclick="window.chatManager.startRename(event, '${chat.id}')" title="Rename chat">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-          </svg>
-        </button>
+        <div class="chat-actions">
+          <button class="action-btn pin-btn ${chat.pinned ? 'active' : ''}" onclick="window.chatManager.togglePin(event, '${chat.id}')" title="${chat.pinned ? 'Unpin chat' : 'Pin chat'}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+            </svg>
+          </button>
+          <button class="action-btn rename-btn" onclick="window.chatManager.startRename(event, '${chat.id}')" title="Rename chat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+          </button>
+          <button class="action-btn delete-btn" onclick="window.chatManager.deleteChat(event, '${chat.id}')" title="Delete chat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
       </div>
     `).join('');
   }
