@@ -29,6 +29,11 @@
     width: 95%;
     margin: 20px;
   }
+
+  /* Always show rename button on touch devices */
+  .rename-btn {
+    opacity: 1;
+  }
 }
 
 /* Scrollbar styling */

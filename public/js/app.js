@@ -11,6 +11,7 @@ class App {
     this.commands = new CommandsManager();
     this.model = new ModelManager();
     this.isGenerating = false;
+    this.abortController = null;
 
     this.bindElements();
   }
@@ -56,6 +57,7 @@ class App {
     // Make available globally for inline handlers
     window.chatManager = this.chat;
     window.commandsManager = this.commands;
+    window.app = this;
   }
 
   async init() {
@@ -247,20 +249,35 @@ class App {
     }
   }
 
-  async sendMessage() {
+  async sendMessage(userText = null) {
     const input = document.getElementById('input');
     const sendBtn = document.getElementById('send-btn');
 
-    if (!input || !this.model.isReady || this.isGenerating) return;
+    if (!this.model.isReady || this.isGenerating) return;
 
-    const text = input.value.trim();
+    const text = userText || input?.value?.trim();
     if (!text) return;
 
+    // Clear input if not regenerating
+    if (!userText && input) {
+      input.value = '';
+      input.style.height = 'auto';
+    }
+
     this.isGenerating = true;
-    input.value = '';
-    input.style.height = 'auto';
-    input.disabled = true;
-    if (sendBtn) sendBtn.disabled = true;
+    this.abortController = new AbortController();
+
+    if (input) input.disabled = true;
+    if (sendBtn) {
+      sendBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+        </svg>
+      `;
+      sendBtn.title = 'Stop generation';
+      sendBtn.onclick = () => this.stopGeneration();
+      sendBtn.disabled = false;
+    }
 
     // Prepare messages
     let chatMessages = [...this.chat.getMessages()];
@@ -276,10 +293,12 @@ class App {
       }
     }
 
-    // Add user message
-    this.chat.addMessage(text, 'user');
+    // Add user message (only if not regenerating)
+    if (!userText) {
+      this.chat.addMessage(text, 'user');
+      this.chat.addToMessages({ role: 'user', content: text });
+    }
     chatMessages.push({ role: 'user', content: text });
-    this.chat.addToMessages({ role: 'user', content: text });
 
     // Add typing indicator
     const typingId = this.chat.addTypingIndicator();
@@ -309,9 +328,33 @@ class App {
     }
 
     this.isGenerating = false;
-    input.disabled = false;
-    if (sendBtn) sendBtn.disabled = false;
-    input.focus();
+    this.abortController = null;
+
+    if (input) input.disabled = false;
+    if (sendBtn) {
+      sendBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      `;
+      sendBtn.title = 'Send message';
+      sendBtn.onclick = () => this.sendMessage();
+      sendBtn.disabled = false;
+    }
+    if (input) input.focus();
+  }
+
+  stopGeneration() {
+    if (this.abortController) {
+      this.abortController.abort();
+    }
+  }
+
+  async regenerateFromEdit(userText) {
+    // This is called when editing the last user message or regenerating
+    // userText is the (possibly edited) text to send
+    await this.sendMessage(userText);
   }
 }
 

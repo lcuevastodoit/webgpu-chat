@@ -87,7 +87,15 @@ export class ModelManager {
     };
 
     // Return the async generator directly - NO await here
+    // This allows streaming tokens as they are generated
     return this.model.generate(messages, opts);
+  }
+
+  stop() {
+    // Some model implementations support stopping
+    if (this.model && this.model.stop) {
+      this.model.stop();
+    }
   }
 
   updateStatus(type, message) {
