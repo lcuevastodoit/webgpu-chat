@@ -40,20 +40,21 @@ export class ChatManager {
     const messageDiv = document.createElement('div');
     messageDiv.className = 'message web-search';
 
-    const resultId = 'web-search-' + Date.now();
+    // Check if content indicates an error or block
+    const isError = content.includes('CAPTCHA') || content.includes('blocked') || content.includes('error') || content.length < 200;
     const previewText = content.slice(0, 200) + (content.length > 200 ? '...' : '');
 
     messageDiv.innerHTML = `
       <div class="message-content">
-        <div class="avatar system">🌐</div>
+        <div class="avatar system" style="${isError ? 'background: rgba(255, 122, 107, 0.2); color: #ff7a6b;' : ''}">${isError ? '⚠️' : '🌐'}</div>
         <div class="message-body">
           <div class="web-search-header" onclick="this.closest('.web-search').classList.toggle('expanded')">
-            <span class="web-search-title">📄 Web search results</span>
+            <span class="web-search-title" style="${isError ? 'color: #ff7a6b;' : ''}">${isError ? '⚠️ Search limited' : '📄 Web search results'}</span>
             <svg class="web-search-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
           </div>
-          <div class="web-search-preview">${escapeHtml(previewText)}</div>
+          <div class="web-search-preview" style="${isError ? 'color: #ff7a6b;' : ''}">${escapeHtml(previewText)}</div>
           <div class="web-search-content hidden">
             <div class="web-search-text">${escapeHtml(content)}</div>
           </div>

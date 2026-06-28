@@ -149,7 +149,8 @@
 }
 
 .message.web-search.expanded .web-search-content {
-  display: block;
+  display: block !important;
+  animation: slideDown 0.2s ease;
 }
 
 .web-search-text {
@@ -157,8 +158,28 @@
   color: var(--text-secondary);
   line-height: 1.6;
   white-space: pre-wrap;
-  max-height: 300px;
+  max-height: 70vh;
   overflow-y: auto;
+  padding-right: 12px;
+}
+
+/* Custom scrollbar for web search results */
+.web-search-text::-webkit-scrollbar {
+  width: 8px;
+}
+
+.web-search-text::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-radius: 4px;
+}
+
+.web-search-text::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.web-search-text::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
 }
 
 .message-content {

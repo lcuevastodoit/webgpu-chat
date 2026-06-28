@@ -91,6 +91,27 @@ export class ModelManager {
     return this.model.generate(messages, opts);
   }
 
+  async generateSingle(messages, options = {}) {
+    // Generate a single response (no streaming) for quick evaluations
+    if (!this.model) {
+      throw new Error('Model not loaded');
+    }
+
+    const opts = {
+      maxNewTokens: 100, // Short response for evaluation
+      ...options
+    };
+
+    const stream = this.model.generate(messages, opts);
+    let fullText = '';
+
+    for await (const { text } of stream) {
+      fullText = text;
+    }
+
+    return fullText;
+  }
+
   stop() {
     // Some model implementations support stopping
     if (this.model && this.model.stop) {

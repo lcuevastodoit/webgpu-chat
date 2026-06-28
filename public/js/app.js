@@ -37,17 +37,404 @@ class App {
   }
 
   async searchWeb(query) {
-    // Use Jina AI Reader to search and extract content
+    // Strategy: Classify query type first, then search appropriate sources
     try {
-      const searchUrl = `https://r.jina.ai/http://www.google.com/search?q=${encodeURIComponent(query)}`;
-      const response = await fetch(searchUrl);
-      const text = await response.text();
+      // Step 1: Use LLM to classify the query type
+      const category = await this.classifyQueryWithLLM(query);
+      console.log('Query classified as:', category);
 
-      // Return cleaned content
-      return text.slice(0, 3000); // Limit context
+      const topic = query
+        .toLowerCase()
+        .replace(/^(que es una|que es un|que son|que es|what is|what are|how to|como|por que|why|cuando|when|donde|where)\s+/i, '')
+        .replace(/\s+(en|in)\s+(ruby|rails|javascript|js|python|java|html|css)\b.*/i, '') // Remove "en ruby", "in javascript", etc.
+        .replace(/\?$/g, '')
+        .trim();
+
+      console.log('Extracted topic:', topic);
+
+      // Step 2: Search based on category - prioritized sources
+      const sources = [];
+      const isProgrammingQuery = /\b(ruby|rails|proc|lambda|block|method|class|module|gem|irb|rake)\b/i.test(query);
+      console.log('Is programming query:', isProgrammingQuery);
+
+      switch (category) {
+        case 'DEFINITION':
+          // Concept/definition questions → Wikipedia first
+          sources.push(
+            this.fetchSource('Wikipedia ES', `https://r.jina.ai/http://es.wikipedia.org/wiki/${encodeURIComponent(topic.replace(/\s+/g, '_'))}`),
+            this.fetchSource('Wikipedia EN', `https://r.jina.ai/http://en.wikipedia.org/wiki/${encodeURIComponent(topic.replace(/\s+/g, '_'))}`)
+          );
+          // Fallback for programming-specific terms
+          if (isProgrammingQuery) {
+            sources.push(
+              this.fetchDuckDuckGoResults(`${query} ruby`, 'Ruby Documentation'),
+              this.fetchDuckDuckGoResults(`site:stackoverflow.com ${query}`, 'Stack Overflow')
+            );
+          } else {
+            // General fallback to DuckDuckGo for non-programming queries
+            sources.push(
+              this.fetchDuckDuckGoResults(query, 'Web Search')
+            );
+          }
+          break;
+
+        case 'CODE_EXAMPLE':
+          // Code examples → Stack Overflow, GitHub, tutorials
+          sources.push(
+            this.fetchDuckDuckGoResults(`site:stackoverflow.com ${query}`, 'Stack Overflow'),
+            this.fetchDuckDuckGoResults(`site:github.com ${query}`, 'GitHub'),
+            this.fetchAndExtractUrls(query, true)
+          );
+          break;
+
+        case 'DOCUMENTATION':
+          // Language/framework specific → Official docs
+          if (/\b(ruby|rails)\b/i.test(query)) {
+            sources.push(
+              this.fetchSource('Ruby Docs', `https://r.jina.ai/http://ruby-doc.org/core-3.1.0/${encodeURIComponent(topic.replace(/\s+/g, '_'))}.html`)
+            );
+          }
+          if (/\b(js|javascript|css|html|dom|web)\b/i.test(query)) {
+            sources.push(
+              this.fetchSource('MDN Web Docs', `https://r.jina.ai/http://developer.mozilla.org/en-US/docs/Web/${encodeURIComponent(topic.replace(/\s+/g, '_'))}`)
+            );
+          }
+          sources.push(
+            this.fetchDuckDuckGoResults(`${query} documentation`, 'Documentation'),
+            this.fetchAndExtractUrls(query, true)
+          );
+          break;
+
+        case 'TUTORIAL':
+          // How-to tutorials → Dev.to, Medium, tutorials
+          sources.push(
+            this.fetchDuckDuckGoResults(`site:dev.to OR site:medium.com ${query}`, 'Tutorials'),
+            this.fetchDuckDuckGoResults(`site:stackoverflow.com ${query}`, 'Stack Overflow'),
+            this.fetchAndExtractUrls(query, true)
+          );
+          break;
+
+        case 'COMPARISON':
+          // Comparisons → Wikipedia + articles
+          sources.push(
+            this.fetchSource('Wikipedia ES', `https://r.jina.ai/http://es.wikipedia.org/wiki/${encodeURIComponent(topic.replace(/\s+/g, '_'))}`),
+            this.fetchSource('Wikipedia EN', `https://r.jina.ai/http://en.wikipedia.org/wiki/${encodeURIComponent(topic.replace(/\s+/g, '_'))}`),
+            this.fetchAndExtractUrls(query, true)
+          );
+          // Fallback
+          sources.push(this.fetchDuckDuckGoResults(query, 'Web Search'));
+          break;
+
+        default:
+          // GENERAL - balanced approach
+          sources.push(
+            this.fetchSource('Wikipedia ES', `https://r.jina.ai/http://es.wikipedia.org/wiki/${encodeURIComponent(topic.replace(/\s+/g, '_'))}`),
+            this.fetchSource('Wikipedia EN', `https://r.jina.ai/http://en.wikipedia.org/wiki/${encodeURIComponent(topic.replace(/\s+/g, '_'))}`),
+            this.fetchDuckDuckGoResults(`site:stackoverflow.com ${query}`, 'Stack Overflow'),
+            this.fetchAndExtractUrls(query, true),
+            // Ensure at least DuckDuckGo works as last resort
+            this.fetchDuckDuckGoResults(query, 'Web Search')
+          );
+      }
+
+      // Fetch sources in parallel
+      const results = await Promise.all(sources);
+      const validSources = results.filter(s => s && s.content && s.content.length > 500);
+
+      console.log('Valid sources found:', validSources.length, 'for category:', category);
+
+      if (validSources.length === 0) {
+        return 'No useful content found from web sources.';
+      }
+
+      if (validSources.length === 1) {
+        const source = validSources[0];
+        return `From ${source.name}:\n\n${source.content.slice(0, 8000)}`;
+      }
+
+      // Use LLM to select the best source from valid ones
+      console.log('Using LLM to select best source...');
+      const selectedContent = await this.selectBestSourceWithLLM(query, validSources, category);
+
+      return selectedContent;
+
     } catch (err) {
       console.error('Web search error:', err);
+      return `Search error: ${err.message}`;
+    }
+  }
+
+  async classifyQueryWithLLM(query) {
+    // LLM is the PRIMARY classifier - no JS fallback regex
+    const classificationPrompt = [
+      {
+        role: 'system',
+        content: `You are a query classifier. Analyze the user's question and classify it into exactly one of these categories:\n\nDEFINITION - Questions asking "what is", "what are", "explain" - seeking conceptual understanding\nCODE_EXAMPLE - Questions asking for code examples, "how to write", "show me code", syntax questions\nDOCUMENTATION - Questions about specific functions, methods, APIs, "what does X do", reference questions\nTUTORIAL - Questions asking "how to", "steps to", "guide me", "tutorial for" - step by step instructions\nCOMPARISON - Questions comparing things: "vs", "difference between", "which is better"\nGENERAL - Other questions that don't fit above\n\nRespond with ONLY the category name. No punctuation, no explanation, just the category.`
+      },
+      {
+        role: 'user',
+        content: `Query: "${query}"\n\nCategory:`
+      }
+    ];
+
+    try {
+      const classification = await this.model.generateSingle(classificationPrompt, { maxNewTokens: 20 });
+      const rawCategory = classification.trim();
+
+      // Map LLM responses to valid categories (fuzzy matching)
+      const categoryMap = {
+        'DEFINITION': ['DEFINITION', 'DEFINICION', 'DEFINITION_TYPE', 'CONCEPT'],
+        'CODE_EXAMPLE': ['CODE_EXAMPLE', 'CODE', 'EXAMPLE', 'CODE_EXAMPLES', 'SYNTAX', 'CODING'],
+        'DOCUMENTATION': ['DOCUMENTATION', 'DOCS', 'REFERENCE', 'API', 'FUNCTION'],
+        'TUTORIAL': ['TUTORIAL', 'HOW_TO', 'HOWTO', 'GUIDE', 'STEP_BY_STEP', 'INSTRUCTIONS'],
+        'COMPARISON': ['COMPARISON', 'COMPARE', 'VERSUS', 'DIFFERENCE', 'VS'],
+        'GENERAL': ['GENERAL', 'OTHER', 'MISC', 'UNKNOWN']
+      };
+
+      const upperCategory = rawCategory.toUpperCase().replace(/[^A-Z_]/g, '');
+
+      // Find matching category
+      for (const [canonical, aliases] of Object.entries(categoryMap)) {
+        if (aliases.includes(upperCategory) || upperCategory === canonical) {
+          console.log('LLM classified as:', canonical);
+          return canonical;
+        }
+      }
+
+      // If no match, try to infer from the raw text
+      if (/\b(definicion|definir|que es|what is|concepto|concept)\b/i.test(rawCategory)) return 'DEFINITION';
+      if (/\b(codigo|code|ejemplo|example|sintaxis|syntax)\b/i.test(rawCategory)) return 'CODE_EXAMPLE';
+      if (/\b(como|how to|pasos|steps|guia|guide)\b/i.test(rawCategory)) return 'TUTORIAL';
+      if (/\b(documentation|docs|referencia|reference)\b/i.test(rawCategory)) return 'DOCUMENTATION';
+      if (/\b(comparar|compare|vs|versus|diferencia|difference)\b/i.test(rawCategory)) return 'COMPARISON';
+
+      console.log('LLM classification unclear, defaulting to GENERAL:', rawCategory);
+      return 'GENERAL';
+
+    } catch (err) {
+      console.error('LLM classification error:', err);
+      return 'GENERAL';
+    }
+  }
+
+  async fetchSource(name, url) {
+    try {
+      const response = await fetch(url);
+      const text = await response.text();
+
+      // Validate content - stricter checks for Wikipedia 404s
+      const isValid = text.length > 1000 &&
+                       !text.includes('404:') &&
+                       !text.includes('404 Not Found') &&
+                       !text.includes('does not exist') &&
+                       !text.includes('no existe') &&
+                       !text.includes('may refer to') &&
+                       !text.includes('puede referirse') &&
+                       !text.includes('Contenido de la página no disponible') &&
+                       !text.includes('redlink');
+
+      if (!isValid) {
+        console.log(`Source ${name} invalid:`, text.slice(0, 200));
+        return null;
+      }
+
+      return { name, content: text.slice(0, 6000), length: text.length };
+    } catch (e) {
+      console.log(`Failed to fetch ${name}:`, e.message);
       return null;
+    }
+  }
+
+  async fetchDuckDuckGoResults(searchQuery, sourceName) {
+    // Search DuckDuckGo and extract content from top result
+    const ddgUrl = `https://r.jina.ai/http://lite.duckduckgo.com/lite/?q=${encodeURIComponent(searchQuery)}`;
+    try {
+      const response = await fetch(ddgUrl);
+      const ddgText = await response.text();
+
+      if (ddgText.length < 500 || ddgText.includes('CAPTCHA')) {
+        return null;
+      }
+
+      // Try to extract the first actual result URL
+      const urlRegex = /https?:\/\/[^\s\)\]\>]+/g;
+      const urls = [...ddgText.matchAll(urlRegex)].map(m => m[0]);
+
+      // Filter for relevant domains
+      const goodDomains = [
+        'stackoverflow.com', 'github.com', 'dev.to', 'medium.com',
+        'freecodecamp.org', 'w3schools.com', 'tutorialspoint.com',
+        'geeksforgeeks.org', 'rubyguides.com', 'railsinsights.com',
+        'delftstack.com', 'rubentejera.com', 'piproductora.com',
+        'learntutorials.net', 'codecademy.com', 'digitalocean.com',
+        'mozilla.org', 'ruby-doc.org', 'api.rubyonrails.org'
+      ];
+
+      const blockedDomains = ['reddit.com', 'linkedin.com', 'pinterest.com', 'facebook.com', 'twitter.com', 'x.com', 'quora.com'];
+
+      const candidateUrls = urls.filter(url => {
+        try {
+          const domain = new URL(url).hostname;
+          const isGood = goodDomains.some(good => domain.includes(good));
+          const isBlocked = blockedDomains.some(bad => domain.includes(bad));
+          return isGood && !isBlocked;
+        } catch {
+          return false;
+        }
+      });
+
+      if (candidateUrls.length === 0) {
+        // Return DuckDuckGo summary if no good URLs
+        return { name: sourceName || 'Web Search', content: ddgText.slice(0, 4000), length: ddgText.length };
+      }
+
+      // Try to extract content from the best URL
+      // But don't fail if extraction doesn't work (e.g., requires login)
+      const bestUrl = candidateUrls[0];
+      console.log(`Trying to extract from: ${bestUrl}`);
+
+      try {
+        const extractUrl = `https://r.jina.ai/http://${bestUrl.replace(/^https?:\/\//, '')}`;
+        const extractResponse = await fetch(extractUrl);
+        const extractText = await extractResponse.text();
+
+        // Check if extraction was successful and not blocked
+        const isBlocked = extractText.includes('login') ||
+                          extractText.includes('sign in') ||
+                          extractText.includes('sign up') ||
+                          extractText.includes('403') ||
+                          extractText.includes('access denied') ||
+                          extractText.length < 500;
+
+        if (extractText.length > 1000 && !extractText.includes('404') && !isBlocked) {
+          console.log(`Successfully extracted from ${bestUrl}`);
+          return { name: sourceName || 'Web Article', content: extractText.slice(0, 6000), length: extractText.length };
+        }
+
+        console.log(`Extraction blocked or failed for ${bestUrl}, using DDG summary`);
+      } catch (extractErr) {
+        console.log(`Extraction error for ${bestUrl}:`, extractErr.message);
+      }
+
+      // Fallback: return DuckDuckGo results with the URL included
+      const enhancedContent = `Search results for "${searchQuery}":\n\n${ddgText.slice(0, 4000)}\n\nTop result: ${bestUrl}`;
+      return { name: sourceName || 'Web Search', content: enhancedContent, length: enhancedContent.length };
+    } catch (e) {
+      console.log(`Failed to fetch ${sourceName}:`, e.message);
+      return null;
+    }
+  }
+
+  async fetchAndExtractUrls(query, isTechnical) {
+    // Get DuckDuckGo results with technical boost
+    let searchQuery = query;
+    if (isTechnical) {
+      // Boost technical queries with programming terms
+      searchQuery = `${query} programming tutorial`;
+    }
+
+    const ddgUrl = `https://r.jina.ai/http://lite.duckduckgo.com/lite/?q=${encodeURIComponent(searchQuery)}`;
+    try {
+      const response = await fetch(ddgUrl);
+      const ddgText = await response.text();
+
+      // Extract URLs from results
+      const urlRegex = /https?:\/\/[^\s\)\]\>]+/g;
+      const urls = [...ddgText.matchAll(urlRegex)].map(m => m[0]);
+
+      const goodDomains = [
+        'github.com', 'stackoverflow.com', 'dev.to', 'medium.com',
+        'freecodecamp.org', 'w3schools.com', 'tutorialspoint.com',
+        'geeksforgeeks.org', 'rubyguides.com', 'railsinsights.com',
+        'delftstack.com', 'rubentejera.com', 'piproductora.com',
+        'learntutorials.net', 'codecademy.com', 'digitalocean.com',
+        'mozilla.org', 'ruby-doc.org', 'api.rubyonrails.org'
+      ];
+
+      const blockedDomains = ['reddit.com', 'linkedin.com', 'pinterest.com', 'facebook.com', 'twitter.com', 'x.com'];
+
+      const candidateUrls = urls.filter(url => {
+        try {
+          const domain = new URL(url).hostname;
+          const isGood = goodDomains.some(good => domain.includes(good));
+          const isBlocked = blockedDomains.some(bad => domain.includes(bad));
+          return isGood && !isBlocked;
+        } catch {
+          return false;
+        }
+      }).slice(0, 2);
+
+      if (candidateUrls.length === 0) return null;
+
+      // Fetch content from URLs in parallel
+      const contents = await Promise.all(
+        candidateUrls.map(url => this.fetchSource('Web Article', `https://r.jina.ai/http://${url.replace(/^https?:\/\//, '')}`))
+      );
+
+      const validContents = contents.filter(c => c);
+      if (validContents.length === 0) return null;
+
+      // Combine multiple web articles
+      const combinedContent = validContents.map(c => c.content).join('\n\n---\n\n');
+      return { name: 'Web Articles', content: combinedContent, length: combinedContent.length };
+    } catch (e) {
+      console.log('Failed to fetch from DuckDuckGo:', e.message);
+      return null;
+    }
+  }
+
+  async selectBestSourceWithLLM(query, sources, category = 'GENERAL') {
+    // Build prompt for LLM to evaluate sources
+    const sourcesText = sources.map((s, i) =>
+      `--- SOURCE ${i + 1}: ${s.name} ---\n${s.content.slice(0, 2000)}\n`
+    ).join('\n');
+
+    const categoryGuidance = {
+      'DEFINITION': 'Prefer sources with clear explanations and definitions (Wikipedia preferred).',
+      'CODE_EXAMPLE': 'Prefer sources with working code examples (Stack Overflow, GitHub preferred).',
+      'DOCUMENTATION': 'Prefer official documentation sources (Ruby Docs, MDN preferred).',
+      'TUTORIAL': 'Prefer sources with step-by-step instructions (Dev.to, tutorials preferred).',
+      'COMPARISON': 'Prefer sources with balanced comparisons (Wikipedia, articles preferred).',
+      'GENERAL': 'Prefer comprehensive sources with clear information.'
+    };
+
+    const evalPrompt = [
+      {
+        role: 'system',
+        content: `You are a helpful assistant that evaluates web search results. Given a user query and multiple web sources, select the single best source.\n\nQuery type: ${category}\nGuidance: ${categoryGuidance[category] || categoryGuidance['GENERAL']}\n\nOutput ONLY the name of the best source (e.g., "Wikipedia ES", "Stack Overflow", "Ruby Docs", etc.).`
+      },
+      {
+        role: 'user',
+        content: `User query: "${query}"\n\nAvailable sources:\n${sourcesText}\n\nWhich source best answers the user's query? Output only the source name:`
+      }
+    ];
+
+    try {
+      // Quick generation with low token count for selection
+      const selection = await this.model.generateSingle(evalPrompt, { maxNewTokens: 50 });
+      const selectedName = selection.trim();
+
+      console.log('LLM selected:', selectedName, 'for category:', category);
+
+      // Find the selected source
+      const selectedSource = sources.find(s =>
+        selectedName.toLowerCase().includes(s.name.toLowerCase()) ||
+        s.name.toLowerCase().includes(selectedName.toLowerCase())
+      );
+
+      if (selectedSource) {
+        return `From ${selectedSource.name} (category: ${category.toLowerCase()}):\n\n${selectedSource.content.slice(0, 8000)}`;
+      }
+
+      // Fallback: use the longest/best source
+      const bestSource = sources.sort((a, b) => b.content.length - a.content.length)[0];
+      return `From ${bestSource.name} (category: ${category.toLowerCase()}):\n\n${bestSource.content.slice(0, 8000)}`;
+
+    } catch (err) {
+      console.error('LLM selection error:', err);
+      // Fallback: return combined sources
+      const combined = sources.map(s => `From ${s.name}:\n${s.content.slice(0, 4000)}`).join('\n\n---\n\n');
+      return `Category: ${category.toLowerCase()}\n\n${combined}`;
     }
   }
 
@@ -336,8 +723,12 @@ class App {
       if (searchIndicator) searchIndicator.remove();
 
       if (webContext) {
-        // Show search results as a collapsible message in the chat
-        this.chat.addWebSearchResult(webContext);
+        // Extract source name from the web context
+        const sourceMatch = webContext.match(/^From\s+([^:]+)/);
+        const sourceName = sourceMatch ? sourceMatch[1] : 'web search';
+
+        // Show which source was selected by the LLM
+        this.chat.addWebSearchResult(`Selected source: ${sourceName}\n\n${webContext}`);
 
         // Add to context for the model
         chatMessages.push({
