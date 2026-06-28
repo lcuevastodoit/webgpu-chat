@@ -12,8 +12,43 @@ class App {
     this.model = new ModelManager();
     this.isGenerating = false;
     this.abortController = null;
+    this.webSearchEnabled = false;
 
     this.bindElements();
+  }
+
+  toggleWebSearch() {
+    this.webSearchEnabled = !this.webSearchEnabled;
+    const btn = document.getElementById('web-search-btn');
+    const input = document.getElementById('input');
+
+    if (btn) {
+      btn.classList.toggle('active', this.webSearchEnabled);
+      btn.title = this.webSearchEnabled
+        ? 'Web search ON - Will search before responding'
+        : 'Search web (uses context)';
+    }
+
+    if (input) {
+      input.placeholder = this.webSearchEnabled
+        ? 'Ask anything (web search enabled)...'
+        : 'Message Gemma...';
+    }
+  }
+
+  async searchWeb(query) {
+    // Use Jina AI Reader to search and extract content
+    try {
+      const searchUrl = `https://r.jina.ai/http://www.google.com/search?q=${encodeURIComponent(query)}`;
+      const response = await fetch(searchUrl);
+      const text = await response.text();
+
+      // Return cleaned content
+      return text.slice(0, 3000); // Limit context
+    } catch (err) {
+      console.error('Web search error:', err);
+      return null;
+    }
   }
 
   bindElements() {
@@ -289,6 +324,25 @@ class App {
         chatMessages.unshift({
           role: 'system',
           content: activeCmd.systemPrompt
+        });
+      }
+    }
+
+    // Web search if enabled
+    let webContext = '';
+    if (this.webSearchEnabled && !userText) {
+      const searchIndicator = this.chat.addMessage('🔍 Searching web...', 'system');
+      webContext = await this.searchWeb(text);
+      if (searchIndicator) searchIndicator.remove();
+
+      if (webContext) {
+        // Show search results as a collapsible message in the chat
+        this.chat.addWebSearchResult(webContext);
+
+        // Add to context for the model
+        chatMessages.push({
+          role: 'system',
+          content: `The following web search results may help answer the user's question:\n\n${webContext}`
         });
       }
     }

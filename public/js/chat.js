@@ -33,6 +33,39 @@ export class ChatManager {
     this.initSearch();
   }
 
+  addWebSearchResult(content) {
+    const { container } = this.elements;
+    if (!container) return;
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message web-search';
+
+    const resultId = 'web-search-' + Date.now();
+    const previewText = content.slice(0, 200) + (content.length > 200 ? '...' : '');
+
+    messageDiv.innerHTML = `
+      <div class="message-content">
+        <div class="avatar system">🌐</div>
+        <div class="message-body">
+          <div class="web-search-header" onclick="this.closest('.web-search').classList.toggle('expanded')">
+            <span class="web-search-title">📄 Web search results</span>
+            <svg class="web-search-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </div>
+          <div class="web-search-preview">${escapeHtml(previewText)}</div>
+          <div class="web-search-content hidden">
+            <div class="web-search-text">${escapeHtml(content)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(messageDiv);
+    this.scrollToBottom();
+    return messageDiv;
+  }
+
   addMessage(content, role, messageId = null) {
     const { container } = this.elements;
     if (!container) return;
