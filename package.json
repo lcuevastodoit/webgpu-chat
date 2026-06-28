@@ -1,0 +1,18 @@
+{
+  "name": "webml-webpage",
+  "version": "1.0.0",
+  "description": "Gemma 4 Chat con soporte para modelo local",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "download": "node download-model.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["gemma", "webgpu", "llm", "local"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
