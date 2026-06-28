@@ -34,6 +34,29 @@
   .rename-btn {
     opacity: 1;
   }
+
+  /* Search panel on mobile */
+  .search-panel {
+    left: 0;
+    top: 50px;
+    border-left: none;
+  }
+
+  .nav-search-btn span {
+    display: none;
+  }
+
+  .search-input-wrapper {
+    padding: 10px 12px;
+  }
+
+  .search-result-item {
+    padding: 12px;
+  }
+
+  .search-result-actions {
+    flex-wrap: wrap;
+  }
 }
 
 /* Scrollbar styling */
