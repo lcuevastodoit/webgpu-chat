@@ -37,7 +37,9 @@ export class ModelManager {
         'https://webml-community-gemma-4-webgpu-kernels.static.hf.space/gemma-4-e2b.js'
       );
 
-      this.model = await Gemma4Mobile.load(null, { onProgress });
+      // Cargar desde el servidor local en lugar de CDN
+      const localModelUrl = `${window.location.origin}/model`;
+      this.model = await Gemma4Mobile.load(localModelUrl, { onProgress });
       await this.model.warmup();
 
       this.updateStatus('ready', 'Ready');

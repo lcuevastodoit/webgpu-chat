@@ -1,0 +1,18 @@
+services:
+  webml:
+    build: .
+    container_name: webml-webpage
+    ports:
+      - "8082:8082"
+    environment:
+      - PORT=8082
+      - NODE_ENV=production
+    volumes:
+      - ./model:/app/model:cached
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
