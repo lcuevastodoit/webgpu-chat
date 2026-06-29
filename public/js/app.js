@@ -565,6 +565,12 @@ class App {
     const cdnLoadState = document.getElementById('cdn-load-state');
     const emptySubtitle = document.getElementById('empty-subtitle');
 
+    // Check if using Ollama/Local endpoint
+    const selectedRuntime = localStorage.getItem('selectedRuntime') || 'onnx-webgpu';
+    if (selectedRuntime === 'custom-endpoint') {
+      return this.initializeOllamaModel();
+    }
+
     // Show checking state
     if (emptySubtitle) emptySubtitle.classList.add('hidden');
     if (checkingState) checkingState.classList.remove('hidden');
@@ -602,6 +608,70 @@ class App {
       if (checkingState) checkingState.classList.add('hidden');
       if (emptySubtitle) emptySubtitle.classList.remove('hidden');
       if (cdnLoadState) cdnLoadState.classList.remove('hidden');
+    }
+  }
+
+  async initializeOllamaModel() {
+    const checkingState = document.getElementById('checking-state');
+    const ollamaState = document.getElementById('ollama-state');
+    const emptySubtitle = document.getElementById('empty-subtitle');
+    const selector = document.getElementById('ollama-model-selector');
+    const status = document.getElementById('ollama-status');
+
+    if (checkingState) checkingState.classList.add('hidden');
+    if (emptySubtitle) emptySubtitle.classList.add('hidden');
+    if (ollamaState) ollamaState.classList.remove('hidden');
+
+    try {
+      // Fetch available models from Ollama
+      const response = await fetch('http://localhost:11434/api/tags');
+      if (!response.ok) throw new Error('Ollama not responding');
+
+      const data = await response.json();
+      const models = data.models || [];
+
+      if (selector) {
+        selector.innerHTML = '';
+        if (models.length === 0) {
+          selector.innerHTML = '<option>No models found</option>';
+          if (status) status.textContent = 'Install models with: ollama pull <model>';
+        } else {
+          models.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model.name;
+            option.textContent = model.name;
+            selector.appendChild(option);
+          });
+          if (status) status.textContent = `${models.length} model(s) available`;
+        }
+
+        // Handle model selection
+        selector.addEventListener('change', async (e) => {
+          if (!e.target.value) return;
+
+          selector.disabled = true;
+          if (status) status.textContent = `Loading ${e.target.value}...`;
+
+          try {
+            // Initialize the endpoint runtime with selected model
+            await this.model.initOllamaRuntime(e.target.value);
+            this.showChat();
+          } catch (err) {
+            console.error('Failed to load Ollama model:', err);
+            if (status) status.textContent = 'Error: ' + err.message;
+            selector.disabled = false;
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Ollama connection error:', err);
+      if (selector) {
+        selector.innerHTML = '<option>Ollama not available</option>';
+        selector.disabled = true;
+      }
+      if (status) {
+        status.textContent = 'Make sure Ollama is running on localhost:11434';
+      }
     }
   }
 
@@ -808,6 +878,45 @@ class App {
     // userText is the (possibly edited) text to send
     await this.sendMessage(userText);
   }
+
+  // Runtime switching
+  switchRuntime(runtimeId) {
+    console.log('App.switchRuntime called:', runtimeId);
+
+    const runtimeConfig = {
+      'onnx-webgpu': { name: 'ONNX WebGPU' },
+      'onnx-cpu': { name: 'ONNX CPU' },
+      'custom-endpoint': { name: 'Endpoint Local' }
+    };
+
+    if (!runtimeConfig[runtimeId]) {
+      console.error('Invalid runtime:', runtimeId);
+      return;
+    }
+
+    // Check if there's an active conversation
+    if (this.chat && this.chat.currentChatId !== null) {
+      if (!confirm('Cambiar de runtime reiniciará el modelo. ¿Continuar?')) {
+        // Revert selector
+        const selector = document.getElementById('runtime-selector');
+        const saved = localStorage.getItem('selectedRuntime') || 'onnx-webgpu';
+        if (selector) selector.value = saved;
+        return;
+      }
+    }
+
+    // Save to localStorage
+    localStorage.setItem('selectedRuntime', runtimeId);
+    console.log('Saved runtime:', runtimeId);
+
+    // Reload page
+    location.reload();
+  }
+
+  // Check if there's an active conversation
+  hasActiveConversation() {
+    return this.chat && this.chat.currentChatId !== null;
+  }
 }
 
 // Initialize app when DOM is ready
@@ -836,4 +945,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const app = new App();
   app.init();
+
+  // Expose app globally for runtime selector and other external calls
+  window.app = app;
 });

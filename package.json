@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node server.js",
     "download": "node download-model.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "keywords": [
     "gemma",
@@ -20,5 +23,8 @@
   "dependencies": {
     "ejs": "^6.0.1",
     "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
   }
 }

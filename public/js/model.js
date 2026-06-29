@@ -78,6 +78,50 @@ export class ModelManager {
     }
   }
 
+  async initOllamaRuntime(modelName) {
+    // Store Ollama model info for use in generation
+    this.ollamaModel = modelName;
+    this.model = {
+      // Create a wrapper that mimics the Gemma4Mobile interface
+      generate: async function*(messages, options) {
+        const response = await fetch('http://localhost:11434/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: modelName,
+            messages: messages,
+            stream: true
+          })
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n').filter(line => line.trim());
+
+          for (const line of lines) {
+            try {
+              const data = JSON.parse(line);
+              if (data.message?.content) {
+                yield data.message.content;
+              }
+            } catch (e) {
+              // Ignore parse errors for incomplete chunks
+            }
+          }
+        }
+      }
+    };
+
+    this.updateStatus('ready', `Ollama: ${modelName}`);
+    return true;
+  }
+
   generate(messages, options = {}) {
     if (!this.model) {
       throw new Error('Model not loaded');
