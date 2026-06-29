@@ -80,21 +80,31 @@ export class ModelManager {
 
   async initOllamaRuntime(modelName) {
     // Store Ollama model info for use in generation
+    console.log('initOllamaRuntime called with model:', modelName);
+    console.log('Previous model was:', this.model ? (this.model.name || 'wrapper') : 'null');
     this.ollamaModel = modelName;
     const self = this;
 
     this.model = {
+      name: 'ollama-wrapper',
       // Create a wrapper that mimics the Gemma4Mobile interface
       generate: async function*(messages, options) {
-        const response = await fetch('http://localhost:11434/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: modelName,
-            messages: messages,
-            stream: true
-          })
-        });
+        console.log('Ollama wrapper generate() called with model:', modelName);
+        console.log('Messages:', messages.length, 'messages');
+        try {
+          const response = await fetch('http://localhost:11434/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: modelName,
+              messages: messages,
+              stream: true
+            })
+          });
+          console.log('Ollama response status:', response.status);
+          if (!response.ok) {
+            throw new Error('Ollama returned ' + response.status);
+          }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -106,12 +116,15 @@ export class ModelManager {
 
           const chunk = decoder.decode(value);
           const lines = chunk.split('\n').filter(line => line.trim());
+          console.log('Received chunk with', lines.length, 'lines');
 
           for (const line of lines) {
             try {
               const data = JSON.parse(line);
+              console.log('Ollama data:', data);
               if (data.message?.content) {
                 fullText += data.message.content;
+                console.log('Yielding text:', fullText.substring(0, 50) + '...');
                 // Yield in the format expected by the app: { text: full }
                 yield { text: fullText };
               }
@@ -119,6 +132,11 @@ export class ModelManager {
               // Ignore parse errors for incomplete chunks
             }
           }
+        }
+          console.log('Ollama stream complete');
+        } catch (err) {
+          console.error('Ollama wrapper error:', err);
+          throw err;
         }
       },
 
@@ -139,11 +157,13 @@ export class ModelManager {
       }
     };
 
+    console.log('Ollama runtime initialized. Model object:', this.model ? this.model.name : 'null');
     this.updateStatus('ready', `Ollama: ${modelName}`);
     return true;
   }
 
   generate(messages, options = {}) {
+    console.log('generate() called. Current model:', this.model ? (this.model.name || 'wrapper') : 'null', 'ollamaModel:', this.ollamaModel);
     if (!this.model) {
       throw new Error('Model not loaded');
     }

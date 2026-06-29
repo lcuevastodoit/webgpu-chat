@@ -93,6 +93,11 @@ export class App {
   get webSearchEnabled() {
     return this.webSearch.webSearchEnabled;
   }
+
+  // Ollama model selector
+  showOllamaSelector() {
+    return this.modelLoader.initializeOllama();
+  }
 }
 
 // Initialize when DOM is ready

@@ -54,10 +54,18 @@ export class ChatController {
   prepareMessages(userText) {
     const messages = [];
 
-    // Add system message
+    // Debug log
+    console.log('prepareMessages - this.model:', this.model);
+    console.log('prepareMessages - this.model.ollamaModel:', this.model.ollamaModel);
+
+    // Add system message based on active model
+    const systemMessage = this.model.ollamaModel
+      ? `You are ${this.model.ollamaModel.split(':')[0]}, a helpful AI assistant.`
+      : 'You are Gemma 4, a helpful AI assistant.';
+    console.log('prepareMessages - systemMessage:', systemMessage);
     messages.push({
       role: 'system',
-      content: 'You are Gemma 4, a helpful AI assistant.'
+      content: systemMessage
     });
 
     // Add web search context if available

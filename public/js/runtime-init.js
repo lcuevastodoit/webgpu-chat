@@ -178,6 +178,12 @@ function init() {
   }
 
   console.log('Runtime selector initialized:', currentRuntimeId);
+
+  // Escuchar evento cuando se carga un modelo Ollama para actualizar la UI
+  window.addEventListener('ollamaModelLoaded', (e) => {
+    console.log('Ollama model loaded event received:', e.detail?.model);
+    updateRuntimeUI();
+  });
 }
 
 // Inicializar cuando el DOM esté listo
@@ -185,8 +191,11 @@ function waitForDOM() {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
-    // DOM ya cargado, pero esperar un tick para asegurar que los elementos existen
-    setTimeout(init, 0);
+    // DOM readyState is 'complete' or 'interactive', but we need to ensure
+    // all HTML has been parsed. Use requestAnimationFrame for next paint cycle.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(init);
+    });
   }
 }
 

@@ -44,6 +44,10 @@ export class ModelLoader {
     if (checkingState) checkingState.classList.remove('hidden');
 
     try {
+      // Clear any existing Ollama model before loading ONNX
+      this.model.model = null;
+      this.model.ollamaModel = null;
+
       const status = await this.model.checkLocalStatus();
       if (checkingState) checkingState.classList.add('hidden');
 
@@ -117,6 +121,10 @@ export class ModelLoader {
           if (status) status.textContent = `Loading ${e.target.value}...`;
 
           try {
+            // Limpiar modelo anterior antes de cargar nuevo
+            console.log('Clearing previous model before loading Ollama:', e.target.value);
+            this.model.model = null;
+            this.model.ollamaModel = null;
             await this.model.initOllamaRuntime(e.target.value);
             localStorage.setItem('ollamaSelectedModel', e.target.value);
             if (ollamaState) ollamaState.classList.add('hidden');
@@ -151,6 +159,8 @@ export class ModelLoader {
     const chatContainer = document.getElementById('chat-container');
 
     try {
+      // Clear any existing model (ONNX) before loading Ollama
+      this.model.model = null;
       await this.model.initOllamaRuntime(modelName);
       if (emptyState) emptyState.style.display = 'none';
       if (chatContainer) chatContainer.style.display = 'block';
