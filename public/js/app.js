@@ -581,9 +581,17 @@ class App {
     }
 
     // Si está configurado para usar Endpoint Local pero no fue cambio manual,
-    // mostrar botón para activar el selector de Ollama
+    // verificar si hay un modelo guardado y cargarlo automáticamente
     if (selectedRuntime === 'custom-endpoint' && !runtimeJustChanged) {
-      console.log('Endpoint mode saved but not manual change, showing activation button');
+      const savedOllamaModel = localStorage.getItem('ollamaSelectedModel');
+      if (savedOllamaModel) {
+        console.log('Endpoint mode with saved model, loading:', savedOllamaModel);
+        // Cargar el modelo guardado automáticamente
+        await this.loadOllamaModel(savedOllamaModel);
+        return;
+      }
+      // Si no hay modelo guardado, mostrar botón para activar selector
+      console.log('Endpoint mode saved but no model selected, showing activation button');
       if (emptySubtitle) emptySubtitle.classList.add('hidden');
       const emptyState = document.getElementById('empty-state');
       if (emptyState) {
@@ -693,6 +701,9 @@ class App {
           try {
             // Initialize the endpoint runtime with selected model
             await this.model.initOllamaRuntime(e.target.value);
+            // Save selected model to localStorage
+            localStorage.setItem('ollamaSelectedModel', e.target.value);
+            console.log('Ollama model saved:', e.target.value);
             // Hide ollama state and show chat
             if (ollamaState) ollamaState.classList.add('hidden');
             this.showChat();
@@ -711,6 +722,57 @@ class App {
       }
       if (status) {
         status.textContent = 'Make sure Ollama is running on localhost:11434';
+      }
+    }
+  }
+
+  showOllamaSelector() {
+    // Mostrar el selector de Ollama nuevamente para cambiar de modelo
+    // Marcar como cambio manual y recargar para mostrar el selector
+    sessionStorage.setItem('runtimeJustChanged', 'true');
+    location.reload();
+  }
+
+  async loadOllamaModel(modelName) {
+    // Cargar un modelo específico de Ollama sin mostrar el selector
+    const emptyState = document.getElementById('empty-state');
+    const chatContainer = document.getElementById('chat-container');
+
+    try {
+      // Inicializar el runtime con el modelo
+      await this.model.initOllamaRuntime(modelName);
+      // Ocultar empty state y mostrar chat
+      if (emptyState) emptyState.style.display = 'none';
+      if (chatContainer) chatContainer.style.display = 'block';
+      this.showChat();
+      // Actualizar el badge con el nombre del modelo
+      const badgeModelVariant = document.getElementById('badge-model-variant');
+      if (badgeModelVariant) {
+        badgeModelVariant.textContent = modelName.split(':')[0]; // Tomar solo el nombre sin tag
+      }
+      console.log('Ollama model loaded:', modelName);
+    } catch (err) {
+      console.error('Failed to load Ollama model:', err);
+      // Si falla, mostrar mensaje de error
+      if (emptyState) {
+        emptyState.innerHTML = `
+          <div style="text-align: center; padding: 40px 20px;">
+            <h2>Error al cargar modelo</h2>
+            <p style="color: var(--text-secondary); margin: 20px 0;">
+              No se pudo cargar el modelo ${modelName}
+            </p>
+            <button id="retry-ollama-btn" class="load-model-btn" style="margin-top: 20px;">
+              Reintentar
+            </button>
+          </div>
+        `;
+        const retryBtn = document.getElementById('retry-ollama-btn');
+        if (retryBtn) {
+          retryBtn.addEventListener('click', () => {
+            sessionStorage.setItem('runtimeJustChanged', 'true');
+            location.reload();
+          });
+        }
       }
     }
   }

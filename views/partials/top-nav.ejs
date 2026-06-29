@@ -10,6 +10,14 @@
         <option value="onnx-cpu">ONNX CPU</option>
         <option value="custom-endpoint">Endpoint Local</option>
       </select>
+      <button class="nav-search-btn hidden" id="change-model-btn" onclick="window.app.showOllamaSelector()" title="Cambiar modelo de Ollama">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+          <path d="M2 17l10 5 10-5"></path>
+          <path d="M2 12l10 5 10-5"></path>
+        </svg>
+        Cambiar modelo
+      </button>
       <button class="nav-search-btn" onclick="window.chatManager.toggleSearch()" title="Web search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
           <circle cx="11" cy="11" r="8"></circle>

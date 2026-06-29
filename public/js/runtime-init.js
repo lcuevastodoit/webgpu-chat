@@ -41,17 +41,29 @@ function updateRuntimeUI() {
   const config = runtimeConfig[currentRuntimeId];
   if (!config) return;
 
+  // Obtener modelo guardado si estamos en modo Ollama
+  const savedOllamaModel = currentRuntimeId === 'custom-endpoint'
+    ? localStorage.getItem('ollamaSelectedModel')
+    : null;
+  const modelDisplayName = savedOllamaModel
+    ? savedOllamaModel.split(':')[0]
+    : config.modelVariant;
+
   // Actualizar badge en top-nav
   const badgeModelName = document.getElementById('badge-model-name');
   const badgeModelVariant = document.getElementById('badge-model-variant');
 
   if (badgeModelName) badgeModelName.textContent = config.modelName;
-  if (badgeModelVariant) badgeModelVariant.textContent = config.modelVariant;
+  if (badgeModelVariant) badgeModelVariant.textContent = modelDisplayName;
 
   // Actualizar footer en sidebar
   const modelInfo = document.getElementById('model-info');
   if (modelInfo) {
-    modelInfo.textContent = `${config.fullName} — ${config.backend}`;
+    if (currentRuntimeId === 'custom-endpoint' && savedOllamaModel) {
+      modelInfo.textContent = `Ollama: ${savedOllamaModel} — HTTP`;
+    } else {
+      modelInfo.textContent = `${config.fullName} — ${config.backend}`;
+    }
   }
 
   // Actualizar subtítulo del empty state
@@ -59,11 +71,23 @@ function updateRuntimeUI() {
   const emptyTitle = document.querySelector('.empty-state h2');
   if (emptySubtitle) {
     if (currentRuntimeId === 'custom-endpoint') {
-      emptySubtitle.textContent = 'Connect to your local Ollama server';
+      emptySubtitle.textContent = savedOllamaModel
+        ? `Modelo: ${savedOllamaModel}`
+        : 'Connect to your local Ollama server';
       if (emptyTitle) emptyTitle.textContent = 'Ollama Local';
     } else {
       emptySubtitle.textContent = 'Running locally in your browser via ' + config.backend;
       if (emptyTitle) emptyTitle.textContent = config.modelName + ' ' + config.modelVariant;
+    }
+  }
+
+  // Mostrar/ocultar botón de cambiar modelo según el runtime
+  const changeModelBtn = document.getElementById('change-model-btn');
+  if (changeModelBtn) {
+    if (currentRuntimeId === 'custom-endpoint') {
+      changeModelBtn.classList.remove('hidden');
+    } else {
+      changeModelBtn.classList.add('hidden');
     }
   }
 
