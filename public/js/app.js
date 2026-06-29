@@ -12,7 +12,7 @@ class App {
     this.model = new ModelManager();
     this.isGenerating = false;
     this.abortController = null;
-    this.webSearchEnabled = true;
+    this.webSearchEnabled = false;
 
     this.bindElements();
   }
