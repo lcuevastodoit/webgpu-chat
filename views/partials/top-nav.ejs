@@ -5,7 +5,7 @@
         <span class="model-name" id="badge-model-name">Gemma 4</span>
         <span class="model-variant" id="badge-model-variant">E2B</span>
       </div>
-      <select class="runtime-selector" id="runtime-selector" title="Select runtime" onchange="window.app.switchRuntime(this.value)">
+      <select class="runtime-selector" id="runtime-selector" title="Select runtime" onchange="window.switchRuntime(this.value)">
         <option value="onnx-webgpu">ONNX WebGPU</option>
         <option value="onnx-cpu">ONNX CPU</option>
         <option value="custom-endpoint">Endpoint Local</option>
