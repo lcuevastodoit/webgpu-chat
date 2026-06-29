@@ -61,7 +61,7 @@ export class ChatController {
     // Add system message based on active model
     const systemMessage = this.model.ollamaModel
       ? `You are ${this.model.ollamaModel.split(':')[0]}, a helpful AI assistant.`
-      : 'You are Gemma 4, a helpful AI assistant.';
+      : 'You are a helpful AI assistant.';
     console.log('prepareMessages - systemMessage:', systemMessage);
     messages.push({
       role: 'system',
