@@ -12,13 +12,17 @@ class App {
     this.model = new ModelManager();
     this.isGenerating = false;
     this.abortController = null;
-    this.webSearchEnabled = false;
+    this.webSearchEnabled = true;
 
     this.bindElements();
   }
 
   toggleWebSearch() {
     this.webSearchEnabled = !this.webSearchEnabled;
+    this.updateWebSearchUI();
+  }
+
+  updateWebSearchUI() {
     const btn = document.getElementById('web-search-btn');
     const input = document.getElementById('input');
 
@@ -489,6 +493,9 @@ class App {
 
     // Bind UI events
     this.bindEvents();
+
+    // Activate web search button by default
+    this.updateWebSearchUI();
 
     // Check model status
     await this.initializeModel();
