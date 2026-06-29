@@ -560,6 +560,7 @@ class App {
   }
 
   async initializeModel() {
+    console.log('initializeModel called');
     const checkingState = document.getElementById('checking-state');
     const loadingLocalState = document.getElementById('loading-local-state');
     const cdnLoadState = document.getElementById('cdn-load-state');
@@ -567,7 +568,9 @@ class App {
 
     // Check if using Ollama/Local endpoint
     const selectedRuntime = localStorage.getItem('selectedRuntime') || 'onnx-webgpu';
+    console.log('selectedRuntime:', selectedRuntime);
     if (selectedRuntime === 'custom-endpoint') {
+      console.log('Calling initializeOllamaModel');
       return this.initializeOllamaModel();
     }
 
@@ -614,12 +617,12 @@ class App {
   async initializeOllamaModel() {
     const checkingState = document.getElementById('checking-state');
     const ollamaState = document.getElementById('ollama-state');
-    const emptySubtitle = document.getElementById('empty-subtitle');
+    const emptyState = document.getElementById('empty-state');
     const selector = document.getElementById('ollama-model-selector');
     const status = document.getElementById('ollama-status');
 
     if (checkingState) checkingState.classList.add('hidden');
-    if (emptySubtitle) emptySubtitle.classList.add('hidden');
+    if (emptyState) emptyState.style.display = 'none'; // Hide the entire empty-state
     if (ollamaState) ollamaState.classList.remove('hidden');
 
     try {
@@ -655,6 +658,8 @@ class App {
           try {
             // Initialize the endpoint runtime with selected model
             await this.model.initOllamaRuntime(e.target.value);
+            // Hide ollama state and show chat
+            if (ollamaState) ollamaState.classList.add('hidden');
             this.showChat();
           } catch (err) {
             console.error('Failed to load Ollama model:', err);

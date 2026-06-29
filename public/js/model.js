@@ -81,6 +81,8 @@ export class ModelManager {
   async initOllamaRuntime(modelName) {
     // Store Ollama model info for use in generation
     this.ollamaModel = modelName;
+    const self = this;
+
     this.model = {
       // Create a wrapper that mimics the Gemma4Mobile interface
       generate: async function*(messages, options) {
@@ -96,6 +98,7 @@ export class ModelManager {
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+        let fullText = '';
 
         while (true) {
           const { done, value } = await reader.read();
@@ -108,13 +111,31 @@ export class ModelManager {
             try {
               const data = JSON.parse(line);
               if (data.message?.content) {
-                yield data.message.content;
+                fullText += data.message.content;
+                // Yield in the format expected by the app: { text: full }
+                yield { text: fullText };
               }
             } catch (e) {
               // Ignore parse errors for incomplete chunks
             }
           }
         }
+      },
+
+      // Add generateSingle for non-streaming operations (like web search classification)
+      generateSingle: async function(messages, options) {
+        const response = await fetch('http://localhost:11434/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: modelName,
+            messages: messages,
+            stream: false
+          })
+        });
+
+        const data = await response.json();
+        return data.message?.content || '';
       }
     };
 
@@ -141,6 +162,11 @@ export class ModelManager {
     // Generate a single response (no streaming) for quick evaluations
     if (!this.model) {
       throw new Error('Model not loaded');
+    }
+
+    // If the model has its own generateSingle (like Ollama), use it
+    if (this.model.generateSingle) {
+      return this.model.generateSingle(messages, options);
     }
 
     const opts = {
