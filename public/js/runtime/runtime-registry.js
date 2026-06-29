@@ -50,7 +50,11 @@ class RuntimeRegistry {
     if (!RuntimeClass) return null;
     const config = this.runtimeConfigs.get(id) || {};
     const instance = new RuntimeClass(...Object.values(config));
-    return instance.getInfo();
+    const availability = this.availability.get(id);
+    return {
+      ...instance.getInfo(),
+      unavailableReason: availability?.reason
+    };
   }
 
   isAvailable(id) {

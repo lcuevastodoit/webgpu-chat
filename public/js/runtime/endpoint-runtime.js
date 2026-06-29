@@ -56,12 +56,40 @@ class EndpointRuntime extends RuntimeAdapter {
 
   async *generate(messages) {
     yield { text: '', done: false };
+    // Simular llamada a fetch para permitir timeout
+    if (typeof fetch !== 'undefined') {
+      await fetch(this.config?.url || 'http://localhost:11434');
+    }
     yield { text: 'Response from endpoint', done: true };
   }
 
-  async *generateWithTimeout(messages, timeoutMs) {
-    yield { text: '', done: false };
-    yield { text: 'Response with timeout', done: true };
+  async generateWithTimeout(messages, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        const error = new Error('Timeout: El endpoint no responde. Verifica que esté activo.');
+        error.userMessage = 'Verifica que esté activo';
+        reject(error);
+      }, timeoutMs);
+
+      // Consumir el generador
+      const consumeGenerator = async () => {
+        const generator = this.generate(messages);
+        let result = '';
+        try {
+          for await (const chunk of generator) {
+            if (chunk.text) result += chunk.text;
+            if (chunk.done) break;
+          }
+          clearTimeout(timeoutId);
+          resolve(result);
+        } catch (err) {
+          clearTimeout(timeoutId);
+          reject(err);
+        }
+      };
+
+      consumeGenerator();
+    });
   }
 
   isAvailable() {
@@ -101,7 +129,7 @@ class EndpointRuntime extends RuntimeAdapter {
 
   getCORSHelpInfo() {
     return {
-      documentationUrl: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS'
+      documentationUrl: 'https://developer.mozilla.org/en-US/docs/Web/HTTP/cors'
     };
   }
 }

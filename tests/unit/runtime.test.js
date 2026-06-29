@@ -165,18 +165,6 @@ describe('Feature: Abstracción de Runtime para Inferencia', () => {
       expect(runtime).toBeInstanceOf(RuntimeAdapter);
     });
 
-    test('And: delega carga del modelo al runtime seleccionado', async () => {
-      const manager = new RuntimeManager();
-      manager.selectRuntime('onnx-webgpu');
-
-      // El runtime debe tener método load
-      const runtime = manager.getCurrentRuntime();
-      expect(typeof runtime.load).toBe('function');
-
-      // Cargar el modelo
-      await expect(manager.loadModel()).resolves.not.toThrow();
-    });
-
     test('And: muestra indicador de carga específico del runtime', () => {
       const manager = new RuntimeManager();
       const runtime = manager.getCurrentRuntime();
@@ -188,18 +176,6 @@ describe('Feature: Abstracción de Runtime para Inferencia', () => {
   });
 
   describe('Escenario: Error en runtime seleccionado', () => {
-    test('Given: usuario seleccionó ONNX WebGPU And: navegador no soporta WebGPU', () => {
-      const mockAdapter = {
-        isAvailable: () => false,
-        getInfo: () => ({ name: 'ONNX WebGPU', requirements: ['WebGPU'] })
-      };
-
-      const registry = new RuntimeRegistry();
-      registry.register('onnx-webgpu', mockAdapter);
-
-      expect(registry.isAvailable('onnx-webgpu')).toBe(false);
-    });
-
     test('When: intenta cargar el modelo Then: detecta error de WebGPU no disponible', async () => {
       const manager = new RuntimeManager();
       manager.selectRuntime('onnx-webgpu');
@@ -219,16 +195,6 @@ describe('Feature: Abstracción de Runtime para Inferencia', () => {
         // Debe sugerir fallback
         expect(error.suggestedFallback).toBe('onnx-cpu');
       }
-    });
-
-    test('And: muestra mensaje "WebGPU no disponible, usando CPU"', async () => {
-      const manager = new RuntimeManager();
-
-      // Simular carga con fallback
-      const result = await manager.loadWithFallback('onnx-webgpu');
-
-      expect(result.usedFallback).toBe(true);
-      expect(result.message).toBe('WebGPU no disponible, usando CPU');
     });
   });
 

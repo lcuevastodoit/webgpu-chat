@@ -568,10 +568,45 @@ class App {
 
     // Check if using Ollama/Local endpoint
     const selectedRuntime = localStorage.getItem('selectedRuntime') || 'onnx-webgpu';
-    console.log('selectedRuntime:', selectedRuntime);
-    if (selectedRuntime === 'custom-endpoint') {
-      console.log('Calling initializeOllamaModel');
+    const runtimeJustChanged = sessionStorage.getItem('runtimeJustChanged') === 'true';
+    console.log('selectedRuntime:', selectedRuntime, 'runtimeJustChanged:', runtimeJustChanged);
+
+    // Solo mostrar selector de Ollama si el usuario cambió MANUALMENTE a custom-endpoint
+    // en esta sesión (no al recargar la página)
+    if (selectedRuntime === 'custom-endpoint' && runtimeJustChanged) {
+      console.log('Calling initializeOllamaModel (manual change detected)');
+      // Limpiar la bandera para que no aparezca en futuras recargas
+      sessionStorage.removeItem('runtimeJustChanged');
       return this.initializeOllamaModel();
+    }
+
+    // Si está configurado para usar Endpoint Local pero no fue cambio manual,
+    // mostrar botón para activar el selector de Ollama
+    if (selectedRuntime === 'custom-endpoint' && !runtimeJustChanged) {
+      console.log('Endpoint mode saved but not manual change, showing activation button');
+      if (emptySubtitle) emptySubtitle.classList.add('hidden');
+      const emptyState = document.getElementById('empty-state');
+      if (emptyState) {
+        emptyState.innerHTML = `
+          <div style="text-align: center; padding: 40px 20px;">
+            <h2>Ollama Local Endpoint</h2>
+            <p style="color: var(--text-secondary); margin: 20px 0;">
+              Runtime configurado para usar Endpoint Local
+            </p>
+            <button id="activate-ollama-btn" class="load-model-btn" style="margin-top: 20px;">
+              Seleccionar modelo de Ollama
+            </button>
+          </div>
+        `;
+        const activateBtn = document.getElementById('activate-ollama-btn');
+        if (activateBtn) {
+          activateBtn.addEventListener('click', () => {
+            sessionStorage.setItem('runtimeJustChanged', 'true');
+            location.reload();
+          });
+        }
+      }
+      return;
     }
 
     // Show checking state

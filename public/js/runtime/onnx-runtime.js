@@ -35,6 +35,10 @@ class OnnxRuntime extends RuntimeAdapter {
   supportsModel(modelId) {
     return modelId.includes('gemma') || modelId.includes('onnx');
   }
+
+  isConfigured() {
+    return true; // ONNX runtime no requiere configuración
+  }
 }
 
 module.exports = OnnxRuntime;

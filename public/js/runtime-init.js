@@ -106,6 +106,12 @@ window.switchRuntime = function(runtimeId) {
     console.log('Saved to localStorage:', runtimeId);
   }
 
+  // Marcar en sessionStorage que fue un cambio manual (para mostrar selector de Ollama)
+  if (typeof sessionStorage !== 'undefined') {
+    sessionStorage.setItem('runtimeJustChanged', 'true');
+    console.log('Marked as manual change in sessionStorage');
+  }
+
   // Recargar página
   console.log('Reloading...');
   location.reload();
