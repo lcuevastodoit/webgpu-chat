@@ -108,7 +108,12 @@ export class UIController {
     }
 
     if (loadCdnBtn) {
-      loadCdnBtn.addEventListener('click', () => this.app.modelLoader.downloadFromCDN());
+      loadCdnBtn.addEventListener('click', async () => {
+        const result = await this.app.modelLoader.downloadFromCDN();
+        if (result.success) {
+          this.showChat();
+        }
+      });
     }
   }
 

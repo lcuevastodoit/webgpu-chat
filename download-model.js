@@ -37,8 +37,13 @@ async function fetchJSON(url) {
         'User-Agent': 'webml-download/1.0'
       }
     }, (response) => {
-      if (response.statusCode === 301 || response.statusCode === 302) {
-        fetchJSON(response.headers.location).then(resolve).catch(reject);
+      // Handle redirects: 301, 302, 307, 308
+      if ([301, 302, 307, 308].includes(response.statusCode)) {
+        // Resolve relative URLs to absolute
+        const redirectUrl = response.headers.location.startsWith('http')
+          ? response.headers.location
+          : new URL(response.headers.location, url).toString();
+        fetchJSON(redirectUrl).then(resolve).catch(reject);
         return;
       }
       if (response.statusCode !== 200) {
@@ -73,15 +78,25 @@ function downloadFile(url, destPath) {
         'User-Agent': 'webml-download/1.0'
       }
     }, (response) => {
-      if (response.statusCode === 301 || response.statusCode === 302) {
+      // Handle redirects: 301, 302, 307, 308
+      if ([301, 302, 307, 308].includes(response.statusCode)) {
         file.close();
-        fs.unlinkSync(destPath);
-        downloadFile(response.headers.location, destPath).then(resolve).catch(reject);
+        if (fs.existsSync(destPath)) {
+          fs.unlinkSync(destPath);
+        }
+        // Resolve relative URLs to absolute
+        const redirectUrl = response.headers.location.startsWith('http')
+          ? response.headers.location
+          : new URL(response.headers.location, url).toString();
+        console.log(`   ↳ Redirect (${response.statusCode}) → ${redirectUrl.substring(0, 60)}...`);
+        downloadFile(redirectUrl, destPath).then(resolve).catch(reject);
         return;
       }
       if (response.statusCode !== 200) {
         file.close();
-        fs.unlinkSync(destPath);
+        if (fs.existsSync(destPath)) {
+          fs.unlinkSync(destPath);
+        }
         reject(new Error(`HTTP ${response.statusCode}`));
         return;
       }

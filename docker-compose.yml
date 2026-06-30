@@ -8,7 +8,7 @@ services:
       - PORT=8082
       - NODE_ENV=production
     volumes:
-      - ./model:/app/model:cached
+      - model-data:/app/model
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/"]
@@ -16,3 +16,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
+
+volumes:
+  model-data:

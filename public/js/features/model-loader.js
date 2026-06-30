@@ -39,6 +39,7 @@ export class ModelLoader {
     const loadingLocalState = document.getElementById('loading-local-state');
     const cdnLoadState = document.getElementById('cdn-load-state');
     const emptySubtitle = document.getElementById('empty-subtitle');
+    const emptyState = document.getElementById('empty-state');
 
     if (emptySubtitle) emptySubtitle.classList.add('hidden');
     if (checkingState) checkingState.classList.remove('hidden');
@@ -56,15 +57,178 @@ export class ModelLoader {
         await this.model.loadFromLocal((event) => this.handleProgress(event));
         return { success: true, source: 'local' };
       } else {
-        if (emptySubtitle) emptySubtitle.classList.remove('hidden');
-        if (cdnLoadState) cdnLoadState.classList.remove('hidden');
-        return { success: false, needsDownload: true };
+        // No local model - start automatic download
+        return this.autoDownloadModel();
       }
     } catch (err) {
       console.error('Initialization error:', err);
       if (checkingState) checkingState.classList.add('hidden');
+
+      // Check if it's a WebGPU error
+      const isWebGPUError = err.message?.includes('WebGPU') ||
+                           err.message?.includes('adapter') ||
+                           err.message?.includes('No WebGPU');
+
+      if (isWebGPUError) {
+        // Show WebGPU-specific error with CDN fallback
+        return this.showWebGPUError(err);
+      }
+
+      // Generic error - show download options
       if (emptySubtitle) emptySubtitle.classList.remove('hidden');
       if (cdnLoadState) cdnLoadState.classList.remove('hidden');
+      return { success: false, error: err };
+    }
+  }
+
+  showWebGPUError(error) {
+    const emptyState = document.getElementById('empty-state');
+
+    if (emptyState) {
+      emptyState.innerHTML = `
+        <h2>⚠️ WebGPU Error</h2>
+        <p style="color: #ff7a6b; font-size: 14px; margin-bottom: 16px;">
+          ${error.message || 'WebGPU is not available'}
+        </p>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">
+          Your browser cannot access the GPU. Try:
+        </p>
+        <ul style="color: var(--text-secondary); font-size: 13px; text-align: left; margin-bottom: 16px; max-width: 400px;">
+          <li>Use Chrome 113+ or Edge 113+</li>
+          <li>Enable WebGPU flags if needed</li>
+          <li>Load from CDN as fallback</li>
+        </ul>
+        <button class="load-model-btn" id="load-cdn-btn" style="margin-bottom: 8px;">
+          Load from CDN (slower)
+        </button>
+        <button class="load-model-btn" id="retry-local-btn" style="background: transparent; border: 1px solid var(--border); color: var(--text-secondary);">
+          Retry Local Model
+        </button>
+      `;
+
+      // Attach event listeners
+      const cdnBtn = document.getElementById('load-cdn-btn');
+      const retryBtn = document.getElementById('retry-local-btn');
+
+      if (cdnBtn) {
+        cdnBtn.addEventListener('click', async () => {
+          const result = await this.downloadFromCDN();
+          if (result.success) {
+            window.dispatchEvent(new CustomEvent('modelLoadedFromCDN'));
+          }
+        });
+      }
+
+      if (retryBtn) {
+        retryBtn.addEventListener('click', () => {
+          window.location.reload();
+        });
+      }
+    }
+
+    return { success: false, error: error, webgpuError: true };
+  }
+
+  async autoDownloadModel() {
+    const emptyState = document.getElementById('empty-state');
+    const cdnLoadState = document.getElementById('cdn-load-state');
+
+    // Hide options and show downloading state
+    if (cdnLoadState) cdnLoadState.classList.add('hidden');
+
+    // Create downloading UI
+    if (emptyState) {
+      emptyState.innerHTML = `
+        <h2>Gemma 4 E2B</h2>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">
+          Downloading model for local use (~2.3GB)...
+        </p>
+        <div class="progress-bar" style="display: block; margin: 20px auto; width: 300px;">
+          <div class="progress-fill" id="download-progress-fill" style="width: 0%;"></div>
+        </div>
+        <p id="download-progress-text" style="color: var(--accent); font-size: 14px;">Starting download...</p>
+        <p id="download-status-text" style="color: var(--text-secondary); font-size: 12px; margin-top: 8px;"></p>
+      `;
+    }
+
+    // Poll for download progress
+    const progressFill = document.getElementById('download-progress-fill');
+    const progressText = document.getElementById('download-progress-text');
+    const statusText = document.getElementById('download-status-text');
+
+    // Start polling for status
+    const pollInterval = setInterval(async () => {
+      try {
+        const status = await this.model.checkLocalStatus();
+        if (status.exists && status.size > 0) {
+          // Model exists - check if download is complete
+          const expectedSize = 2.3 * 1024 * 1024 * 1024; // ~2.3GB
+          const progress = Math.min((status.size / expectedSize) * 100, 99);
+
+          if (progressFill) progressFill.style.width = progress + '%';
+          if (progressText) progressText.textContent = `Downloaded: ${status.humanReadable}`;
+          if (statusText) statusText.textContent = 'Downloading to server...';
+        }
+      } catch (e) {
+        console.log('Poll error (non-critical):', e);
+      }
+    }, 2000);
+
+    try {
+      // Trigger server-side download
+      const response = await fetch('/api/download-model', { method: 'POST' });
+      const result = await response.json();
+
+      clearInterval(pollInterval);
+
+      if (statusText) statusText.textContent = 'Download complete! Reloading...';
+      if (progressFill) progressFill.style.width = '100%';
+
+      // Give user a moment to see completion, then reload
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+
+      return { success: false, downloading: true };
+    } catch (err) {
+      clearInterval(pollInterval);
+      console.error('Auto-download error:', err);
+
+      // Show error and fallback options
+      if (emptyState) {
+        emptyState.innerHTML = `
+          <h2>Gemma 4 E2B</h2>
+          <p style="color: #ff7a6b; font-size: 14px; margin-bottom: 16px;">
+            Download failed: ${err.message || 'Unknown error'}
+          </p>
+          <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">
+            You can try alternative options:
+          </p>
+          <button class="load-model-btn" id="retry-download-btn" style="margin-bottom: 8px;">
+            Retry Download
+          </button>
+          <button class="load-model-btn" id="load-cdn-btn" style="background: transparent; border: 1px solid var(--border); color: var(--text-secondary);">
+            Load from CDN (slower)
+          </button>
+        `;
+      }
+
+      // Re-attach event listeners
+      const retryBtn = document.getElementById('retry-download-btn');
+      const cdnBtn = document.getElementById('load-cdn-btn');
+
+      if (retryBtn) {
+        retryBtn.addEventListener('click', () => this.autoDownloadModel());
+      }
+      if (cdnBtn) {
+        cdnBtn.addEventListener('click', async () => {
+          const result = await this.downloadFromCDN();
+          if (result.success) {
+            window.dispatchEvent(new CustomEvent('modelLoadedFromCDN'));
+          }
+        });
+      }
+
       return { success: false, error: err };
     }
   }
@@ -239,30 +403,53 @@ export class ModelLoader {
   async downloadFromCDN() {
     const cdnLoadState = document.getElementById('cdn-load-state');
     const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
     const emptySubtitle = document.getElementById('empty-subtitle');
 
     if (cdnLoadState) cdnLoadState.classList.add('hidden');
     if (emptySubtitle) emptySubtitle.classList.add('hidden');
     if (progressBar) progressBar.style.display = 'block';
+    if (progressText) progressText.textContent = 'Loading model from CDN...';
 
     try {
       await this.model.loadFromCDN((event) => {
-        const fill = document.getElementById('progress-fill');
-        const text = document.getElementById('progress-text');
+        try {
+          const fill = document.getElementById('progress-fill');
+          const text = document.getElementById('progress-text');
 
-        if (event.status === 'weights' && event.fraction) {
-          if (fill) fill.style.width = (event.fraction * 100) + '%';
-          if (text) {
-            const loaded = event.loaded || 0;
-            const total = event.total || 0;
-            text.textContent = `${formatBytes(loaded)} / ${formatBytes(total)}`;
+          if (event.status === 'weights' && event.fraction) {
+            if (fill) fill.style.width = (event.fraction * 100) + '%';
+            if (text) {
+              const loaded = event.loaded || 0;
+              const total = event.total || 0;
+              if (total > 0) {
+                text.textContent = `${formatBytes(loaded)} / ${formatBytes(total)}`;
+              } else {
+                text.textContent = `Loading: ${Math.round(event.fraction * 100)}%`;
+              }
+            }
           }
+        } catch (progressErr) {
+          console.log('Progress update error (non-critical):', progressErr);
         }
       });
 
       return { success: true, source: 'cdn' };
     } catch (err) {
       console.error('CDN load error:', err);
+
+      // Restore UI on error so user can try again
+      if (progressBar) progressBar.style.display = 'none';
+      if (cdnLoadState) cdnLoadState.classList.remove('hidden');
+      if (emptySubtitle) emptySubtitle.classList.remove('hidden');
+
+      // Show error message in progress text area
+      const text = document.getElementById('progress-text');
+      if (text) {
+        text.textContent = `Error: ${err.message || 'Failed to load from CDN'}`;
+        text.style.color = '#ff7a6b';
+      }
+
       return { success: false, error: err };
     }
   }

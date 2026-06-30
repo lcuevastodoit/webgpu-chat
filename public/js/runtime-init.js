@@ -145,12 +145,26 @@ window.switchRuntime = function(runtimeId) {
 function init() {
   console.log('Initializing runtime selector...');
 
-  // PRIMERO cargar preferencia guardada (si existe)
-  loadSavedRuntime();
-  console.log('After loadSavedRuntime:', currentRuntimeId);
-
-  // LUEGO detectar capacidades solo si no hay preferencia guardada
+  // Detectar capacidades WebGPU PRIMERO
   const caps = detectCapabilities();
+
+  // Verificar el valor actual en localStorage (puede haber sido cambiado por app-core.js)
+  const currentSavedRuntime = localStorage.getItem('selectedRuntime');
+  if (currentSavedRuntime && runtimeConfig[currentSavedRuntime]) {
+    currentRuntimeId = currentSavedRuntime;
+    console.log('Loaded current runtime from localStorage:', currentRuntimeId);
+  }
+
+  // Si no hay WebGPU y el modo actual es ONNX, verificar si debemos cambiar
+  if (!caps.webgpu && (currentRuntimeId === 'onnx-webgpu' || currentRuntimeId === 'onnx-cpu')) {
+    // app-core.js cambió a custom-endpoint, actualizamos
+    if (currentSavedRuntime === 'custom-endpoint') {
+      currentRuntimeId = 'custom-endpoint';
+      console.log('Detected custom-endpoint mode (WebGPU fallback)');
+    }
+  }
+
+  // Si no hay preferencia guardada y no hay WebGPU, usar CPU
   if (!localStorage.getItem('selectedRuntime') && !caps.webgpu) {
     currentRuntimeId = 'onnx-cpu';
     console.log('No saved preference, WebGPU not available, using CPU');

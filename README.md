@@ -1,38 +1,85 @@
-# Gemma 4 Chat - Local Model Support
+# Gemma 4 Chat - Local LLM with WebGPU
 
-A chat application with Gemma 4 E2B (QAT Mobile) supporting local model execution without downloading it every time.
+A chat application running **Google Gemma 4** directly in your browser using **WebGPU** acceleration. No server-side GPU required, no API keys, no cloud costs. The model runs entirely on your device.
 
-Una aplicación de chat con Gemma 4 E2B (QAT Mobile) con soporte para ejecutar el modelo **localmente** sin necesidad de descargarlo cada vez.
+Una aplicación de chat que ejecuta **Google Gemma 4** directamente en tu navegador usando aceleración **WebGPU**. Sin GPU en servidor, sin claves API, sin costes en la nube. El modelo corre completamente en tu dispositivo.
+
+**Quick Overview / Resumen Rápido:**
+```
+git clone <repo> → docker compose up -d → http://localhost:8082
+```
+Or manually / O manualmente: `npm install` → `npm run download` → `npm start`
+
+---
+
+## 🤖 What is an LLM for WebGPU? / ¿Qué es un LLM para WebGPU?
+
+This application runs a **Large Language Model (LLM)** - an AI trained to understand and generate human text - directly in your web browser using **WebGPU**, a modern browser API that enables GPU acceleration.
+
+Esta aplicación ejecuta un **Modelo de Lenguaje Grande (LLM)** - una IA entrenada para entender y generar texto humano - directamente en tu navegador usando **WebGPU**, una API moderna que permite la aceleración por GPU.
+
+### Key Concepts / Conceptos Clave
+
+| English | Español |
+|---------|---------|
+| **LLM** = Large Language Model. AI trained on vast text data to understand context and generate responses. | **LLM** = Modelo de Lenguaje Grande. IA entrenada con enormes cantidades de texto para entender contexto y generar respuestas. |
+| **WebGPU** = New browser standard that allows web apps to use your graphics card for computation, making AI run fast locally. | **WebGPU** = Nuevo estándar de navegador que permite a las apps web usar tu tarjeta gráfica para cómputo, haciendo que la IA corra rápido localmente. |
+| **Gemma 4** = Google's open-source LLM (4 billion parameters), optimized to run on consumer devices. | **Gemma 4** = LLM de código abierto de Google (4 mil millones de parámetros), optimizado para ejecutarse en dispositivos de consumo. |
+
+### Why WebGPU? / ¿Por qué WebGPU?
+
+Traditional LLMs require powerful servers with expensive GPUs. **WebGPU changes this** by letting the model run on YOUR computer's GPU through the browser.
+
+Los LLM tradicionales requieren servidores potentes con GPUs caras. **WebGPU cambia esto** permitiendo que el modelo corra en la GPU de TU computadora a través del navegador.
+
+- ✅ **Privacy** / Privacidad: Your data never leaves your device / Tus datos nunca salen de tu dispositivo
+- ✅ **Free** / Gratis: No API costs / Sin costes de API
+- ✅ **Offline** / Sin conexión: Works without internet after download / Funciona sin internet tras descargar
+- ✅ **Fast** / Rápido: Direct GPU acceleration / Aceleración GPU directa
 
 ---
 
 ## 🚀 Quick Start / Inicio Rápido
 
-### Docker (Recommended / Recomendado)
+### Step 1: Clone the Repository / Paso 1: Clona el Repositorio
 
 ```bash
-# Start container / Iniciar contenedor
-docker compose up -d
+git clone <repository-url>
+cd webgpu-chat
+```
+
+### Step 2: Install & Run / Paso 2: Instala y Ejecuta
+
+Choose one method / Elige un método:
+
+#### Option A: Docker (Recommended) / Opción A: Docker (Recomendado)
+
+```bash
+# Build and start / Construir e iniciar
+docker compose up -d --build
+
+# View logs / Ver logs
+docker compose logs -f
 
 # Or use aliases / O usa los alias:
 # webml-start    → Start
-# webml-restart  → Restart  
+# webml-restart  → Restart
 # webml-stop     → Stop
 # webml-logs     → View logs
 ```
 
 Access at / Accede en: **http://localhost:8082**
 
-### Manual / Manualmente
+#### Option B: Manual Installation / Opción B: Instalación Manual
 
 ```bash
-# Install dependencies / Instalar dependencias
+# 1. Install Node.js dependencies / Instalar dependencias de Node.js
 npm install
 
-# Download model (~2.3GB, only once / solo una vez)
+# 2. Download the model (~2.3GB, only once) / Descargar el modelo (~2.3GB, solo una vez)
 npm run download
 
-# Start server / Iniciar servidor
+# 3. Start the server / Iniciar el servidor
 npm start
 ```
 
@@ -55,10 +102,18 @@ Access at / Accede en: **http://localhost:3000**
 
 ## 📋 Requirements / Requisitos
 
-- Node.js 18+ (for manual install / para instalación manual)
-- Docker & Docker Compose (for Docker / para Docker)
-- Chrome/Edge 113+ (WebGPU required / requerido)
-- ~2.5 GB free space (for model / para el modelo)
+| Requirement / Requisito | Why / Por qué |
+|-------------------------|---------------|
+| **Chrome 113+** or Edge 113+ | WebGPU is required to run the LLM locally / WebGPU es necesario para ejecutar el LLM localmente |
+| Node.js 18+ | For manual installation / Para instalación manual |
+| Docker & Docker Compose | For containerized setup / Para setup con contenedores |
+| ~2.5 GB free space | The Gemma 4 model size / Tamaño del modelo Gemma 4 |
+
+### What is WebGPU? / ¿Qué es WebGPU?
+
+**WebGPU** is a modern web standard that gives browsers low-level access to your computer's GPU (graphics card). This app uses WebGPU to run the AI model directly on your hardware, achieving speeds impossible with pure JavaScript.
+
+**WebGPU** es un estándar web moderno que da a los navegadores acceso de bajo nivel a la GPU de tu computadora. Esta app usa WebGPU para ejecutar el modelo de IA directamente en tu hardware, logrando velocidades imposibles con JavaScript puro.
 
 ---
 

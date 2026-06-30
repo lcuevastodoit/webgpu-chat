@@ -54,8 +54,10 @@ export class ModelManager {
   }
 
   async loadFromCDN(onProgress) {
-    if (this.isLoading || this.model) return;
+    if (this.isLoading) return;
 
+    // Reset model state to allow re-loading if previous attempt failed
+    this.model = null;
     this.isLoading = true;
     this.updateStatus('loading', 'Loading from CDN...');
 
@@ -71,6 +73,7 @@ export class ModelManager {
       return true;
     } catch (err) {
       console.error('Error loading from CDN:', err);
+      this.model = null;
       this.updateStatus('error', 'Failed to load');
       throw err;
     } finally {
