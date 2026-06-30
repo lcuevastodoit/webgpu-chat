@@ -4,6 +4,8 @@ A chat application running **Google Gemma 4** directly in your browser using **W
 
 Una aplicación de chat que ejecuta **Google Gemma 4** directamente en tu navegador usando aceleración **WebGPU**. Sin GPU en servidor, sin claves API, sin costes en la nube. El modelo corre completamente en tu dispositivo.
 
+![Gemma 4 Chat Demo](public/demo-view.png)
+
 **Quick Overview / Resumen Rápido:**
 ```
 git clone <repo> → docker compose up -d → http://localhost:8082
